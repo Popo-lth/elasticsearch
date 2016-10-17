@@ -86,13 +86,13 @@ final class RemoteRequestBuilders {
                 for (int i = 1; i < searchRequest.source().sorts().size(); i++) {
                     sorts.append(',').append(sortToUri(searchRequest.source().sorts().get(i)));
                 }
-                params.put("sorts", sorts.toString());
+                params.put("sort", sorts.toString());
             }
         }
-        if (searchRequest.source().storedFields() != null && false == searchRequest.source().storedFields().isEmpty()) {
-            StringBuilder fields = new StringBuilder(searchRequest.source().storedFields().get(0));
-            for (int i = 1; i < searchRequest.source().storedFields().size(); i++) {
-                fields.append(',').append(searchRequest.source().storedFields().get(i));
+        if (searchRequest.source().storedFields() != null && false == searchRequest.source().storedFields().fieldNames().isEmpty()) {
+            StringBuilder fields = new StringBuilder(searchRequest.source().storedFields().fieldNames().get(0));
+            for (int i = 1; i < searchRequest.source().storedFields().fieldNames().size(); i++) {
+                fields.append(',').append(searchRequest.source().storedFields().fieldNames().get(i));
             }
             String storedFieldsParamName = remoteVersion.before(Version.V_5_0_0_alpha4) ? "fields" : "stored_fields";
             params.put(storedFieldsParamName, fields.toString());

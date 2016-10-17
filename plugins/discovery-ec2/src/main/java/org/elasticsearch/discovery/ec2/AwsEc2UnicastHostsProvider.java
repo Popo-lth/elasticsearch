@@ -27,6 +27,8 @@ import com.amazonaws.services.ec2.model.Filter;
 import com.amazonaws.services.ec2.model.GroupIdentifier;
 import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.Reservation;
+import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.apache.logging.log4j.util.Supplier;
 import org.elasticsearch.Version;
 import org.elasticsearch.cloud.aws.AwsEc2Service;
 import org.elasticsearch.cloud.aws.AwsEc2Service.DISCOVERY_EC2;
@@ -50,9 +52,6 @@ import static java.util.Collections.disjoint;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 
-/**
- *
- */
 public class AwsEc2UnicastHostsProvider extends AbstractComponent implements UnicastHostsProvider {
 
     private final TransportService transportService;
@@ -175,7 +174,10 @@ public class AwsEc2UnicastHostsProvider extends AbstractComponent implements Uni
                                     emptyMap(), emptySet(), Version.CURRENT.minimumCompatibilityVersion()));
                         }
                     } catch (Exception e) {
-                        logger.warn("failed ot add {}, address {}", e, instance.getInstanceId(), address);
+                        final String finalAddress = address;
+                        logger.warn(
+                            (Supplier<?>)
+                                () -> new ParameterizedMessage("failed to add {}, address {}", instance.getInstanceId(), finalAddress), e);
                     }
                 } else {
                     logger.trace("not adding {}, address is null, host_type {}", instance.getInstanceId(), hostType);

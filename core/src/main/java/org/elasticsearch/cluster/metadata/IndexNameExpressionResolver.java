@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
 public class IndexNameExpressionResolver extends AbstractComponent {
@@ -607,22 +606,20 @@ public class IndexNameExpressionResolver extends AbstractComponent {
                     add = false;
                     expression = expression.substring(1);
                 }
+                if (result == null) {
+                    // add all the previous ones...
+                    result = new HashSet<>(expressions.subList(0, i));
+                }
                 if (!Regex.isSimpleMatchPattern(expression)) {
                     if (!unavailableIgnoredOrExists(options, metaData, expression)) {
                         throw infe(expression);
                     }
-                    if (result != null) {
-                        if (add) {
-                            result.add(expression);
-                        } else {
-                            result.remove(expression);
-                        }
+                    if (add) {
+                        result.add(expression);
+                    } else {
+                        result.remove(expression);
                     }
                     continue;
-                }
-                if (result == null) {
-                    // add all the previous ones...
-                    result = new HashSet<>(expressions.subList(0, i));
                 }
 
                 final IndexMetaData.State excludeState = excludeState(options);
@@ -850,12 +847,7 @@ public class IndexNameExpressionResolver extends AbstractComponent {
                                 DateTimeFormatter parser = dateFormatter.withZone(timeZone);
                                 FormatDateTimeFormatter formatter = new FormatDateTimeFormatter(dateFormatterPattern, parser, Locale.ROOT);
                                 DateMathParser dateMathParser = new DateMathParser(formatter);
-                                long millis = dateMathParser.parse(mathExpression, new Callable<Long>() {
-                                    @Override
-                                    public Long call() throws Exception {
-                                        return context.getStartTime();
-                                    }
-                                }, false, timeZone);
+                            long millis = dateMathParser.parse(mathExpression, context::getStartTime, false, timeZone);
 
                                 String time = formatter.printer().print(millis);
                                 beforePlaceHolderSb.append(time);

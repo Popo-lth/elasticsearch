@@ -34,17 +34,14 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentHelper;
 import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.indices.query.IndicesQueriesRegistry;
 import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.RestChannel;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
+import org.elasticsearch.rest.action.RestActions;
+import org.elasticsearch.rest.action.RestStatusToXContentListener;
 import org.elasticsearch.rest.action.search.RestSearchAction;
-import org.elasticsearch.rest.action.support.RestActions;
-import org.elasticsearch.rest.action.support.RestStatusToXContentListener;
 import org.elasticsearch.script.ScriptService;
-import org.elasticsearch.search.aggregations.AggregatorParsers;
-import org.elasticsearch.search.suggest.Suggesters;
+import org.elasticsearch.search.SearchRequestParsers;
 
 import java.io.IOException;
 
@@ -67,6 +64,8 @@ public class RestSearchTemplateAction extends BaseRestHandler {
             request.setScriptType(ScriptService.ScriptType.STORED);
             request.setScript(s);
         }, new ParseField("id"));
+        PARSER.declareBoolean(SearchTemplateRequest::setExplain, new ParseField("explain"));
+        PARSER.declareBoolean(SearchTemplateRequest::setProfile, new ParseField("profile"));
         PARSER.declareField((parser, request, value) -> {
             request.setScriptType(ScriptService.ScriptType.INLINE);
             if (parser.currentToken() == XContentParser.Token.START_OBJECT) {
@@ -81,17 +80,12 @@ public class RestSearchTemplateAction extends BaseRestHandler {
         }, new ParseField("inline", "template"), ObjectParser.ValueType.OBJECT_OR_STRING);
     }
 
-    private final IndicesQueriesRegistry queryRegistry;
-    private final AggregatorParsers aggParsers;
-    private final Suggesters suggesters;
+    private final SearchRequestParsers searchRequestParsers;
 
     @Inject
-    public RestSearchTemplateAction(Settings settings, RestController controller, IndicesQueriesRegistry queryRegistry,
-                                    AggregatorParsers aggregatorParsers, Suggesters suggesters) {
+    public RestSearchTemplateAction(Settings settings, RestController controller, SearchRequestParsers searchRequestParsers) {
         super(settings);
-        this.queryRegistry = queryRegistry;
-        this.aggParsers = aggregatorParsers;
-        this.suggesters = suggesters;
+        this.searchRequestParsers = searchRequestParsers;
 
         controller.registerHandler(GET, "/_search/template", this);
         controller.registerHandler(POST, "/_search/template", this);
@@ -102,20 +96,20 @@ public class RestSearchTemplateAction extends BaseRestHandler {
     }
 
     @Override
-    public void handleRequest(RestRequest request, RestChannel channel, NodeClient client) throws Exception {
+    public RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
         if (RestActions.hasBodyContent(request) == false) {
             throw new ElasticsearchException("request body is required");
         }
 
         // Creates the search request with all required params
         SearchRequest searchRequest = new SearchRequest();
-        RestSearchAction.parseSearchRequest(searchRequest, queryRegistry, request, parseFieldMatcher, aggParsers, suggesters, null);
+        RestSearchAction.parseSearchRequest(searchRequest, request, searchRequestParsers, parseFieldMatcher, null);
 
         // Creates the search template request
         SearchTemplateRequest searchTemplateRequest = parse(RestActions.getRestContent(request));
         searchTemplateRequest.setRequest(searchRequest);
 
-        client.execute(SearchTemplateAction.INSTANCE, searchTemplateRequest, new RestStatusToXContentListener<>(channel));
+        return channel -> client.execute(SearchTemplateAction.INSTANCE, searchTemplateRequest, new RestStatusToXContentListener<>(channel));
     }
 
     public static SearchTemplateRequest parse(BytesReference bytes) throws IOException {

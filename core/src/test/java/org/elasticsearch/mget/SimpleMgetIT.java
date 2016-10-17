@@ -27,7 +27,7 @@ import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.cluster.metadata.IndexMetaData;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.search.fetch.source.FetchSourceContext;
+import org.elasticsearch.search.fetch.subphase.FetchSourceContext;
 import org.elasticsearch.test.ESIntegTestCase;
 
 import java.io.IOException;
@@ -60,7 +60,8 @@ public class SimpleMgetIT extends ESIntegTestCase {
         assertThat(mgetResponse.getResponses()[1].getIndex(), is("nonExistingIndex"));
         assertThat(mgetResponse.getResponses()[1].isFailed(), is(true));
         assertThat(mgetResponse.getResponses()[1].getFailure().getMessage(), is("no such index"));
-        assertThat(((ElasticsearchException) mgetResponse.getResponses()[1].getFailure().getFailure()).getIndex().getName(), is("nonExistingIndex"));
+        assertThat(((ElasticsearchException) mgetResponse.getResponses()[1].getFailure().getFailure()).getIndex().getName(),
+            is("nonExistingIndex"));
 
 
         mgetResponse = client().prepareMultiGet()
@@ -70,7 +71,8 @@ public class SimpleMgetIT extends ESIntegTestCase {
         assertThat(mgetResponse.getResponses()[0].getIndex(), is("nonExistingIndex"));
         assertThat(mgetResponse.getResponses()[0].isFailed(), is(true));
         assertThat(mgetResponse.getResponses()[0].getFailure().getMessage(), is("no such index"));
-        assertThat(((ElasticsearchException) mgetResponse.getResponses()[0].getFailure().getFailure()).getIndex().getName(), is("nonExistingIndex"));
+        assertThat(((ElasticsearchException) mgetResponse.getResponses()[0].getFailure().getFailure()).getIndex().getName(),
+            is("nonExistingIndex"));
 
 
     }
@@ -108,7 +110,7 @@ public class SimpleMgetIT extends ESIntegTestCase {
     public void testThatSourceFilteringIsSupported() throws Exception {
         assertAcked(prepareCreate("test").addAlias(new Alias("alias")));
         BytesReference sourceBytesRef = jsonBuilder().startObject()
-                .field("field", "1", "2")
+                .array("field", "1", "2")
                 .startObject("included").field("field", "should be seen").field("hidden_field", "should not be seen").endObject()
                 .field("excluded", "should not be seen")
                 .endObject().bytes();
@@ -119,9 +121,11 @@ public class SimpleMgetIT extends ESIntegTestCase {
         MultiGetRequestBuilder request = client().prepareMultiGet();
         for (int i = 0; i < 100; i++) {
             if (i % 2 == 0) {
-                request.add(new MultiGetRequest.Item(indexOrAlias(), "type", Integer.toString(i)).fetchSourceContext(new FetchSourceContext("included", "*.hidden_field")));
+                request.add(new MultiGetRequest.Item(indexOrAlias(), "type", Integer.toString(i))
+                    .fetchSourceContext(new FetchSourceContext(true, new String[] {"included"}, new String[] {"*.hidden_field"})));
             } else {
-                request.add(new MultiGetRequest.Item(indexOrAlias(), "type", Integer.toString(i)).fetchSourceContext(new FetchSourceContext(false)));
+                request.add(new MultiGetRequest.Item(indexOrAlias(), "type", Integer.toString(i))
+                    .fetchSourceContext(new FetchSourceContext(false)));
             }
         }
 

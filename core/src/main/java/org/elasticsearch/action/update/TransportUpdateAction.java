@@ -64,8 +64,6 @@ import java.util.Map;
 
 import static org.elasticsearch.ExceptionsHelper.unwrapCause;
 
-/**
- */
 public class TransportUpdateAction extends TransportInstanceSingleOperationAction<UpdateRequest, UpdateResponse> {
 
     private final TransportDeleteAction deleteAction;
@@ -176,7 +174,7 @@ public class TransportUpdateAction extends TransportInstanceSingleOperationActio
         final ShardId shardId = request.getShardId();
         final IndexService indexService = indicesService.indexServiceSafe(shardId.getIndex());
         final IndexShard indexShard = indexService.getShard(shardId.getId());
-        final UpdateHelper.Result result = updateHelper.prepare(request, indexShard);
+        final UpdateHelper.Result result = updateHelper.prepare(request, indexShard, threadPool::estimatedTimeInMillis);
         switch (result.getResponseResult()) {
             case CREATED:
                 IndexRequest upsertRequest = result.action();
@@ -186,7 +184,8 @@ public class TransportUpdateAction extends TransportInstanceSingleOperationActio
                     @Override
                     public void onResponse(IndexResponse response) {
                         UpdateResponse update = new UpdateResponse(response.getShardInfo(), response.getShardId(), response.getType(), response.getId(), response.getVersion(), response.getResult());
-                        if (request.fields() != null && request.fields().length > 0) {
+                        if ((request.fetchSource() != null && request.fetchSource().fetchSource()) ||
+                            (request.fields() != null && request.fields().length > 0)) {
                             Tuple<XContentType, Map<String, Object>> sourceAndContent = XContentHelper.convertToMap(upsertSourceBytes, true);
                             update.setGetResult(updateHelper.extractGetResult(request, request.concreteIndex(), response.getVersion(), sourceAndContent.v2(), sourceAndContent.v1(), upsertSourceBytes));
                         } else {

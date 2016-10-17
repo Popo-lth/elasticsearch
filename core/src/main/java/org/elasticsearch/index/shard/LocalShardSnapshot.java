@@ -36,8 +36,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- */
 final class LocalShardSnapshot implements Closeable {
     private final IndexShard shard;
     private final Store store;
@@ -85,7 +83,7 @@ final class LocalShardSnapshot implements Closeable {
             }
 
             @Override
-            public void renameFile(String source, String dest) throws IOException {
+            public void rename(String source, String dest) throws IOException {
                 throw new UnsupportedOperationException("this directory is read-only");
             }
 

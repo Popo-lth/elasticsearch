@@ -38,9 +38,6 @@ import org.elasticsearch.transport.TransportService;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-/**
- *
- */
 public class MembershipAction extends AbstractComponent {
 
     public static final String DISCOVERY_JOIN_ACTION_NAME = "internal:discovery/zen/join";
@@ -74,12 +71,6 @@ public class MembershipAction extends AbstractComponent {
         transportService.registerRequestHandler(DISCOVERY_JOIN_ACTION_NAME, JoinRequest::new, ThreadPool.Names.GENERIC, new JoinRequestRequestHandler());
         transportService.registerRequestHandler(DISCOVERY_JOIN_VALIDATE_ACTION_NAME, ValidateJoinRequest::new, ThreadPool.Names.GENERIC, new ValidateJoinRequestRequestHandler());
         transportService.registerRequestHandler(DISCOVERY_LEAVE_ACTION_NAME, LeaveRequest::new, ThreadPool.Names.GENERIC, new LeaveRequestRequestHandler());
-    }
-
-    public void close() {
-        transportService.removeHandler(DISCOVERY_JOIN_ACTION_NAME);
-        transportService.removeHandler(DISCOVERY_JOIN_VALIDATE_ACTION_NAME);
-        transportService.removeHandler(DISCOVERY_LEAVE_ACTION_NAME);
     }
 
     public void sendLeaveRequest(DiscoveryNode masterNode, DiscoveryNode node) {

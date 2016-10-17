@@ -32,6 +32,7 @@ import org.elasticsearch.search.DocValueFormat;
 import org.elasticsearch.search.aggregations.AggregatorFactory;
 import org.elasticsearch.search.aggregations.PipelineAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregatorFactory;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramInterval;
 import org.elasticsearch.search.aggregations.bucket.histogram.HistogramAggregatorFactory;
 import org.elasticsearch.search.aggregations.pipeline.AbstractPipelineAggregationBuilder;
@@ -47,7 +48,6 @@ import java.util.Objects;
 
 public class DerivativePipelineAggregationBuilder extends AbstractPipelineAggregationBuilder<DerivativePipelineAggregationBuilder> {
     public static final String NAME = "derivative";
-    public static final ParseField AGGREGATION_NAME_FIELD = new ParseField(NAME);
 
     private static final ParseField FORMAT_FIELD = new ParseField("format");
     private static final ParseField GAP_POLICY_FIELD = new ParseField("gap_policy");
@@ -142,7 +142,7 @@ public class DerivativePipelineAggregationBuilder extends AbstractPipelineAggreg
         }
         Long xAxisUnits = null;
         if (units != null) {
-            DateTimeUnit dateTimeUnit = DateHistogramAggregatorFactory.DATE_FIELD_UNITS.get(units);
+            DateTimeUnit dateTimeUnit = DateHistogramAggregationBuilder.DATE_FIELD_UNITS.get(units);
             if (dateTimeUnit != null) {
                 xAxisUnits = dateTimeUnit.field(DateTimeZone.UTC).getDurationField().getUnitMillis();
             } else {

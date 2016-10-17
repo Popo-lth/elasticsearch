@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Collections.emptyMap;
+
 import org.elasticsearch.common.collect.MapBuilder;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.script.CompiledScript;
@@ -37,9 +39,6 @@ import org.junit.Before;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 
-/**
- *
- */
 public class JavaScriptScriptEngineTests extends ESTestCase {
     private JavaScriptScriptEngineService se;
 
@@ -56,6 +55,13 @@ public class JavaScriptScriptEngineTests extends ESTestCase {
     public void testSimpleEquation() {
         Map<String, Object> vars = new HashMap<String, Object>();
         Object o = se.executable(new CompiledScript(ScriptService.ScriptType.INLINE, "testSimpleEquation", "js", se.compile(null, "1 + 2", Collections.emptyMap())), vars).run();
+        assertThat(((Number) o).intValue(), equalTo(3));
+    }
+
+    public void testNullVars() {
+        CompiledScript script = new CompiledScript(ScriptService.ScriptType.INLINE, "testSimpleEquation", "js",
+                se.compile(null, "1 + 2", emptyMap()));
+        Object o = se.executable(script, null).run();
         assertThat(((Number) o).intValue(), equalTo(3));
     }
 

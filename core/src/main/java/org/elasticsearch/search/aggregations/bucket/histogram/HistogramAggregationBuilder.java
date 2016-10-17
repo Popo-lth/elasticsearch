@@ -19,7 +19,6 @@
 
 package org.elasticsearch.search.aggregations.bucket.histogram;
 
-import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.xcontent.XContentBuilder;
@@ -28,8 +27,8 @@ import org.elasticsearch.search.aggregations.AggregatorFactory;
 import org.elasticsearch.search.aggregations.support.AggregationContext;
 import org.elasticsearch.search.aggregations.support.ValueType;
 import org.elasticsearch.search.aggregations.support.ValuesSource;
-import org.elasticsearch.search.aggregations.support.ValuesSourceAggregationBuilder;
 import org.elasticsearch.search.aggregations.support.ValuesSource.Numeric;
+import org.elasticsearch.search.aggregations.support.ValuesSourceAggregationBuilder;
 import org.elasticsearch.search.aggregations.support.ValuesSourceAggregatorFactory;
 import org.elasticsearch.search.aggregations.support.ValuesSourceConfig;
 import org.elasticsearch.search.aggregations.support.ValuesSourceType;
@@ -43,12 +42,11 @@ import java.util.Objects;
 public class HistogramAggregationBuilder
         extends ValuesSourceAggregationBuilder<ValuesSource.Numeric, HistogramAggregationBuilder> {
     public static final String NAME = InternalHistogram.TYPE.name();
-    public static final ParseField AGGREGATION_NAME_FIELD = new ParseField(NAME);
 
     private double interval;
     private double offset = 0;
-    private double minBound = Double.MAX_VALUE;
-    private double maxBound = Double.MIN_VALUE;
+    private double minBound = Double.POSITIVE_INFINITY;
+    private double maxBound = Double.NEGATIVE_INFINITY;
     private InternalOrder order = (InternalOrder) Histogram.Order.KEY_ASC;
     private boolean keyed = false;
     private long minDocCount = 0;
@@ -122,17 +120,24 @@ public class HistogramAggregationBuilder
         return maxBound;
     }
 
-    /** Set extended bounds on this builder: buckets between {@code minBound}
-     *  and {@code maxBound} will be created even if no documents fell into
-     *  these buckets. It is possible to create half-open bounds by providing
-     *  {@link Double#POSITIVE_INFINITY} as a {@code minBound} or 
-     *  {@link Double#NEGATIVE_INFINITY} as a {@code maxBound}. */
+    /**
+     * Set extended bounds on this builder: buckets between {@code minBound} and
+     * {@code maxBound} will be created even if no documents fell into these
+     * buckets.
+     *
+     * @throws IllegalArgumentException
+     *             if maxBound is less that minBound, or if either of the bounds
+     *             are not finite.
+     */
     public HistogramAggregationBuilder extendedBounds(double minBound, double maxBound) {
-        if (minBound == Double.NEGATIVE_INFINITY) {
-            throw new IllegalArgumentException("minBound must not be -Infinity, got: " + minBound);
+        if (Double.isFinite(minBound) == false) {
+            throw new IllegalArgumentException("minBound must be finite, got: " + minBound);
         }
-        if (maxBound == Double.POSITIVE_INFINITY) {
-            throw new IllegalArgumentException("maxBound must not be +Infinity, got: " + maxBound);
+        if (Double.isFinite(maxBound) == false) {
+            throw new IllegalArgumentException("maxBound must be finite, got: " + maxBound);
+        }
+        if (maxBound < minBound) {
+            throw new IllegalArgumentException("maxBound [" + maxBound + "] must be greater than minBound [" + minBound + "]");
         }
         this.minBound = minBound;
         this.maxBound = maxBound;

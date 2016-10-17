@@ -20,21 +20,20 @@
 package org.elasticsearch.test.transport;
 
 import org.elasticsearch.Version;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.transport.TransportService;
-
 import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.component.Lifecycle;
 import org.elasticsearch.common.component.LifecycleListener;
-import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.io.stream.BytesStreamOutput;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.network.NetworkModule;
 import org.elasticsearch.common.network.NetworkService;
+import org.elasticsearch.common.settings.ClusterSettings;
+import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.BoundTransportAddress;
 import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.BigArrays;
 import org.elasticsearch.common.util.concurrent.AbstractRunnable;
 import org.elasticsearch.common.util.concurrent.ConcurrentCollections;
 import org.elasticsearch.indices.breaker.NoneCircuitBreakerService;
@@ -43,13 +42,15 @@ import org.elasticsearch.tasks.TaskManager;
 import org.elasticsearch.test.tasks.MockTaskManager;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.ConnectTransportException;
+import org.elasticsearch.transport.MockTcpTransport;
 import org.elasticsearch.transport.RequestHandlerRegistry;
 import org.elasticsearch.transport.Transport;
 import org.elasticsearch.transport.TransportException;
+import org.elasticsearch.transport.TransportInterceptor;
 import org.elasticsearch.transport.TransportRequest;
 import org.elasticsearch.transport.TransportRequestOptions;
+import org.elasticsearch.transport.TransportService;
 import org.elasticsearch.transport.TransportServiceAdapter;
-import org.elasticsearch.transport.local.LocalTransport;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -72,39 +73,35 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * (for example, @see org.elasticsearch.discovery.zen.ping.unicast.UnicastZenPing, which constructs
  * fake DiscoveryNode instances where the publish address is one of the bound addresses).
  */
-public class MockTransportService extends TransportService {
+public final class MockTransportService extends TransportService {
+
 
     public static class TestPlugin extends Plugin {
-        public void onModule(NetworkModule module) {
-            module.registerTransportService("mock", MockTransportService.class);
-        }
-
         @Override
         public List<Setting<?>> getSettings() {
             return Arrays.asList(MockTaskManager.USE_MOCK_TASK_MANAGER_SETTING);
         }
-        @Override
-        public Settings additionalSettings() {
-            return Settings.builder().put(NetworkModule.TRANSPORT_SERVICE_TYPE_KEY, "mock").build();
-        }
     }
 
-    public static MockTransportService local(Settings settings, Version version, ThreadPool threadPool) {
+    public static MockTransportService createNewService(Settings settings, Version version, ThreadPool threadPool,
+            @Nullable ClusterSettings clusterSettings) {
         NamedWriteableRegistry namedWriteableRegistry = new NamedWriteableRegistry(Collections.emptyList());
-        Transport transport = new LocalTransport(settings, threadPool, namedWriteableRegistry, new NoneCircuitBreakerService()) {
-            @Override
-            protected Version getVersion() {
-                return version;
-            }
-        };
-        return new MockTransportService(settings, transport, threadPool);
+        final Transport transport = new MockTcpTransport(settings, threadPool, BigArrays.NON_RECYCLING_INSTANCE,
+                new NoneCircuitBreakerService(), namedWriteableRegistry, new NetworkService(settings, Collections.emptyList()), version);
+        return new MockTransportService(settings, transport, threadPool, TransportService.NOOP_TRANSPORT_INTERCEPTOR, clusterSettings);
     }
 
     private final Transport original;
 
-    @Inject
-    public MockTransportService(Settings settings, Transport transport, ThreadPool threadPool) {
-        super(settings, new LookupTestTransport(transport), threadPool);
+    /**
+     * Build the service.
+     * 
+     * @param clusterSettings if non null the the {@linkplain TransportService} will register with the {@link ClusterSettings} for settings
+     *        updates for {@link #TRACE_LOG_EXCLUDE_SETTING} and {@link #TRACE_LOG_INCLUDE_SETTING}.
+     */
+    public MockTransportService(Settings settings, Transport transport, ThreadPool threadPool, TransportInterceptor interceptor,
+            @Nullable ClusterSettings clusterSettings) {
+        super(settings, new LookupTestTransport(transport), threadPool, interceptor, clusterSettings);
         this.original = transport;
     }
 
@@ -642,6 +639,4 @@ public class MockTransportService extends TransportService {
             }
         }
     }
-
-
 }

@@ -34,14 +34,12 @@ import org.elasticsearch.common.Table;
 import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.regex.Regex;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.rest.RestChannel;
+import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestResponse;
-import org.elasticsearch.rest.action.support.RestActionListener;
-import org.elasticsearch.rest.action.support.RestResponseListener;
-import org.elasticsearch.rest.action.support.RestTable;
+import org.elasticsearch.rest.action.RestActionListener;
+import org.elasticsearch.rest.action.RestResponseListener;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.threadpool.ThreadPoolStats;
 
@@ -70,13 +68,13 @@ public class RestThreadPoolAction extends AbstractCatAction {
     }
 
     @Override
-    public void doRequest(final RestRequest request, final RestChannel channel, final NodeClient client) {
+    public RestChannelConsumer doCatRequest(final RestRequest request, final NodeClient client) {
         final ClusterStateRequest clusterStateRequest = new ClusterStateRequest();
         clusterStateRequest.clear().nodes(true);
         clusterStateRequest.local(request.paramAsBoolean("local", clusterStateRequest.local()));
         clusterStateRequest.masterNodeTimeout(request.paramAsTime("master_timeout", clusterStateRequest.masterNodeTimeout()));
 
-        client.admin().cluster().state(clusterStateRequest, new RestActionListener<ClusterStateResponse>(channel) {
+        return channel -> client.admin().cluster().state(clusterStateRequest, new RestActionListener<ClusterStateResponse>(channel) {
             @Override
             public void processResponse(final ClusterStateResponse clusterStateResponse) {
                 NodesInfoRequest nodesInfoRequest = new NodesInfoRequest();
@@ -96,6 +94,20 @@ public class RestThreadPoolAction extends AbstractCatAction {
                 });
             }
         });
+    }
+
+    private static final Set<String> RESPONSE_PARAMS;
+
+    static {
+        final Set<String> responseParams = new HashSet<>();
+        responseParams.addAll(AbstractCatAction.RESPONSE_PARAMS);
+        responseParams.add("thread_pool_patterns");
+        RESPONSE_PARAMS = Collections.unmodifiableSet(responseParams);
+    }
+
+    @Override
+    protected Set<String> responseParams() {
+        return RESPONSE_PARAMS;
     }
 
     @Override
@@ -183,11 +195,7 @@ public class RestThreadPoolAction extends AbstractCatAction {
                 table.addCell(info == null ? null : info.getProcess().getId());
                 table.addCell(node.getHostName());
                 table.addCell(node.getHostAddress());
-                if (node.getAddress() instanceof InetSocketTransportAddress) {
-                    table.addCell(((InetSocketTransportAddress) node.getAddress()).address().getPort());
-                } else {
-                    table.addCell("-");
-                }
+                table.addCell(node.getAddress().address().getPort());
                 final ThreadPoolStats.Stats poolStats = entry.getValue();
                 final ThreadPool.Info poolInfo = poolThreadInfo.get(entry.getKey());
 
